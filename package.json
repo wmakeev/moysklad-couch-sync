@@ -1,0 +1,31 @@
+{
+  "name": "moysklad-couch-sync",
+  "version": "0.1.0",
+  "description": "Синхронизация МойСклад c CouchDB",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wmakeev/moysklad-couch-sync.git"
+  },
+  "keywords": [
+    "moysklad",
+    "sync",
+    "couchdb"
+  ],
+  "author": "Vitaliy V. Makeev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wmakeev/moysklad-couch-sync/issues"
+  },
+  "homepage": "https://github.com/wmakeev/moysklad-couch-sync#readme",
+  "dependencies": {
+    "co": "^4.6.0",
+    "debug": "^2.2.0",
+    "have2": "^0.3.0",
+    "moment": "^2.13.0",
+    "moysklad-client": "^0.2.10"
+  }
+}
