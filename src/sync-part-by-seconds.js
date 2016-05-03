@@ -6,6 +6,7 @@ let moment = require('moment')
 let moysklad = require('moysklad-client')
 
 let fixTimezone = require('./fix-timezone')
+let updateContinuationToken = require('./update-continuation-token')
 
 module.exports = function * syncPartBySeconds (syncToDB, loadAsync, type, step, continuationToken) {
   have(arguments, {
@@ -13,7 +14,8 @@ module.exports = function * syncPartBySeconds (syncToDB, loadAsync, type, step, 
     continuationToken: 'continuationToken'
   })
 
-  debug(continuationToken)
+  let updateToken = updateContinuationToken(continuationToken)
+  debug('syncPartBySeconds', continuationToken.updated)
 
   let nextSecond = moment(continuationToken.updated)
     .startOf('second').add(1, 'second').toDate()
@@ -39,12 +41,9 @@ module.exports = function * syncPartBySeconds (syncToDB, loadAsync, type, step, 
   // TODO Может быть и без yeild но как обрабатывать ошибки?
   yield syncToDB(entities)
 
-  if (entities.length < step) {
-    return { updated: nextSecond }
-  } else {
-    return yield syncPartBySeconds(syncToDB, type, step, {
-      updated: continuationToken.updated,
+  return entities.length < step
+    ? updateToken({ updated: nextSecond, uuid: undefined })
+    : yield syncPartBySeconds(syncToDB, loadAsync, type, step, updateToken({
       uuid: entities[entities.length - 1].uuid
-    })
-  }
+    }))
 }
