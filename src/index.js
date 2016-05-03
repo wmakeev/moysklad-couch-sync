@@ -6,16 +6,24 @@ let moment = require('moment')
 let moysklad = require('moysklad-client')
 
 let syncPart = require('./sync-part')
+let couchSync = require('./couch-sync')
 
-let syncToDB = entities => console.log(entities.map(ent =>
-  ent.name.substring(0, 10) + ' ' + moment(ent.updated).format('HH:mm:ss.SSS')))
+let syncToDB = function * (entities) {
+  yield couchSync(entities)
+  console.log(entities.map(ent =>
+    ent.name.substring(0, 50) + ' ' + moment(ent.updated).format('HH:mm:ss.SSS')))
+}
 
 let client = moysklad.createClient()
 
 function loadAsync (type, query) {
   return new Promise((resolve, reject) => {
     client.load(type, query, function (err, data) {
-      if (err) { reject(err) } else { resolve(data) }
+      if (err) {
+        reject(err)
+      } else {
+        resolve(data)
+      }
     })
   })
 }
@@ -33,4 +41,6 @@ co(function * () {
     continuationToken = yield syncPart(syncToDB, loadAsync, 'internalOrder', 3, continuationToken)
     yield wait(2000)
   }
-}).catch(err => { throw err })
+}).catch(err => {
+  console.log(err.stack)
+})

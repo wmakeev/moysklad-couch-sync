@@ -24,8 +24,10 @@
   "dependencies": {
     "co": "^4.6.0",
     "debug": "^2.2.0",
+    "es6-promisify": "^4.0.0",
     "have2": "^0.3.0",
     "moment": "^2.13.0",
-    "moysklad-client": "^0.2.10"
+    "moysklad-client": "^0.2.10",
+    "nano": "^6.2.0"
   }
 }

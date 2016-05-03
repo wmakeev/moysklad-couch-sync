@@ -7,5 +7,5 @@ let timezone = -6
 let timezoneFix = msServerTimezone + timezone
 
 module.exports = function fixTimezone (time) {
-  moment(time).add(timezoneFix, 'hour').toDate()
+  return moment(time).add(timezoneFix, 'hour').toDate()
 }

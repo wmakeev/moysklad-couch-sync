@@ -36,7 +36,8 @@ module.exports = function * syncPartBySeconds (syncToDB, loadAsync, type, step, 
   let entities = yield loadAsync(type, query)
   debug(entities.map(ent => moment(ent.updated).format('HH:mm:ss SSS')))
 
-  syncToDB(entities)
+  // TODO Может быть и без yeild но как обрабатывать ошибки?
+  yield syncToDB(entities)
 
   if (entities.length < step) {
     return { updated: nextSecond }

@@ -43,20 +43,20 @@ module.exports = function * syncPart (syncToDB, loadAsync, type, step, continuat
     if (requestTime < lastUpdatedEnd) {
       // Запрос был в ту же секунду что и посление обновления
       if (entitiesToSync) {
-        syncToDB(entitiesToSync)
+        yield syncToDB(entitiesToSync)
         return { updated: lastUpdatedStart }
       } else {
         // Повторяем запрос
         return { updated: continuationToken.updated }
       }
     } else {
-      syncToDB(entities)
+      yield syncToDB(entities)
       return { updated: lastUpdatedEnd }
     }
   } else {
     // Получена только часть обновлений
     if (entitiesToSync.length) {
-      syncToDB(entitiesToSync)
+      yield syncToDB(entitiesToSync)
       return { updated: lastUpdatedStart }
     } else {
       return yield syncPartBySeconds(syncToDB, type, step, {
