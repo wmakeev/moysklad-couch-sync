@@ -39,6 +39,8 @@ typings
 
 # Temp
 temp.js
+_temp*.js
+_temp*.ts
 
 # Local
 .env
