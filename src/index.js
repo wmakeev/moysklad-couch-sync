@@ -7,19 +7,30 @@ const moysklad = require('moysklad-client')
 
 const syncPart = require('./sync-part')
 const couchSync = require('./couch-sync')
-const db = require('project/nano-promise')
+const db = require('_project/nano-promise')
 
-const WAIT_TIME = 2000
-const SYNC_STEP = 10
+const WAIT_TIME = 60000
+const SYNC_STEP = 100
 
-let syncToDB = function * (entities) {
+let client = moysklad.createClient()
+
+/**
+ * Синхронизирует сущности с базой данных
+ * @param {Array<Entity>} entities Список сущностей
+ * @returns {Iterable} db.bulk
+ */
+function * syncToDB (entities) {
   console.log('syncToDB', entities.map(ent =>
     ent.name.substring(0, 50) + ' ' + moment(ent.updated).format('HH:mm:ss.SSS')))
   yield couchSync(entities)
 }
 
-let client = moysklad.createClient()
-
+/**
+ * Асинхронная обертка для client.load
+ * @param {string} type Тип сущности
+ * @param {Query} query Запрос
+ * @returns {PromiseLike} Promise
+ */
 function loadAsync (type, query) {
   return new Promise((resolve, reject) => {
     client.load(type, query, function (err, data) {
@@ -32,31 +43,53 @@ function loadAsync (type, query) {
   })
 }
 
+/**
+ * Асинхронный wait
+ * @param {number} time Время (мс)
+ * @returns {PromiseLike} Promise
+ */
 function wait (time) {
   return new Promise(resolve => setTimeout(resolve, time))
 }
 
+/**
+ * Синхронизирует часть сущностей
+ * @param {string} type Тип сущности
+ * @param {ContinuationToken} continuationToken Тип сущности
+ * @param {number} step Кол-во синхронизируемых сущностей для текущей итерации
+ * @returns {Iterable} undefined
+ */
 function * syncWorker (type, continuationToken, step) {
   let currentToken = continuationToken
   let nextToken
-  let nextTokenRev
+  let tokenRev
 
   while (true) {
-    debug(`syncWorker type: ${type} | updated: ${moment(currentToken.updated)
+    debug(`syncWorker type: ${type} | updatedFrom: ${moment(currentToken.updatedFrom)
       .format('HH:mm:ss SSS')}`)
     nextToken = yield syncPart(syncToDB, loadAsync, type, step, currentToken)
     if (nextToken !== currentToken) {
-      nextTokenRev = yield db.insert(nextToken)
-      debug('Token updated ' + nextTokenRev.rev)
-      currentToken = Object.assign({}, nextToken, { _rev: nextTokenRev.rev })
+      // TODO Constructor
+      currentToken = Object.assign({
+        _id: 'syncToken:' + type,
+        _rev: currentToken._rev,
+        TYPE_NAME: 'config.syncToken'
+      }, nextToken)
+      tokenRev = yield db.insert(currentToken)
+      debug('Token updated ' + tokenRev.rev)
+      currentToken._rev = tokenRev.rev
     }
     yield wait(WAIT_TIME)
   }
 }
 
 co(function * () {
-  let continuationTokensMap = (yield db.view('views', 'sync-token')).rows.reduce((res, row) => {
-    res.set(row.key, Object.assign({}, row.value, { updated: new Date(row.value.updated) }))
+  /** @type {CouchDBList<ContinuationToken>} */
+  let continuationTokens = (yield db.view('views', 'sync-token'))
+
+  /** @type {Map<string, ContinuationToken>} */
+  let continuationTokensMap = continuationTokens.rows.reduce((res, row) => {
+    res.set(row.key, Object.assign({}, row.value))
     return res
   }, new Map())
 
@@ -67,5 +100,5 @@ co(function * () {
       console.log(`Error in worker (${type}):`, err.stack)
     })
   })
-}).then(res => console.log('Started'))
+}).then(res => console.log('Sync started ..'))
   .catch(err => console.log(err.stack))
