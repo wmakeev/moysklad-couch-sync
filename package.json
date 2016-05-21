@@ -28,7 +28,7 @@
     "es6-promisify": "^4.0.0",
     "have2": "^0.3.0",
     "moment": "^2.13.0",
-    "moysklad-client": "^0.2.10",
+    "moysklad-client": "git+https://github.com/wmakeev/moysklad-client#68cc31708c2d3d57fd5d89160b1301adb227fc7d",
     "nano": "^6.2.0"
   },
   "devDependencies": {
