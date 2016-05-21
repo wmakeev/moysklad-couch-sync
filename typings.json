@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "debug": "registry:npm/debug#2.0.0+20160511151334",
+    "moment": "npm:moment"
+  },
+  "ambientDependencies": {
+    "node": "registry:dt/node#6.0.0+20160514165920"
+  }
+}
