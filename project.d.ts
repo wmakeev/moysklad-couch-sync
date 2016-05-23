@@ -1,13 +1,13 @@
 interface CouchDBView<T> {
-    key: string;
-    id?: string;
+    key: string
+    id?: string
     value?: T
     error?: string
 }
 
 interface CouchDBList<T> {
-    offset: number;
-    rows: Array<CouchDBView<T>>;
+    offset: number
+    rows: Array<CouchDBView<T>>
     total_rows: number;
 }
 
@@ -16,9 +16,9 @@ interface CouchDBList<T> {
  */
 interface CouchDBDoc {
     /** Идентификатор токена в базе базе данных CouchDB */
-    _id: string;
+    _id: string
     /** Ревизия токена в базе базе данных CouchDB */
-    _rev: string;
+    _rev: string
 }
 
 /**
@@ -26,23 +26,27 @@ interface CouchDBDoc {
  */
 interface ContinuationToken extends CouchDBDoc {
     /** Тип объекта */
-    TYPE_NAME: string;
+    TYPE_NAME: string
     /** Дата в формате UTC с которой должна быть начата следующая итерация синхронизации */
-    updatedFrom: string;
+    updatedFrom: string
     /** Дата в формате UTC до которой должна быть завершена синхронизация */
-    updatedTo: string;
+    updatedTo?: string
     /** Идентификатор на котором была приостановлена прошлая итерация синхронизации */
-    fromUuid?: string;
+    fromUuid?: string
+    /** Кол-во сущностей которые осталось синхронизировать */
+    remaining?: number
+    /** Время между итерациями */
+    timeout?: number
 }
 
 /**
  * Сущность МойСклад
  */
 interface Entity {
-    TYPE_NAME: string;
-    uuid: string;
-    name: string;
-    updated: Date;
+    TYPE_NAME: string
+    uuid: string
+    name: string
+    updated: Date
 }
 
 interface EntityCollection<T> extends ArrayLike<T> {
