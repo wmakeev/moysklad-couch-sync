@@ -1,6 +1,7 @@
 'use strict'
 
 const debug = require('debug')('sync-part')
+const log = require('debug')('moysklad-couch-sync')
 const moment = require('moment')
 const moysklad = require('moysklad-client')
 const have = require('_project/have')
@@ -56,7 +57,7 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
     query = query.filter('uuid', { $gt: continuationToken.fromUuid })
   }
 
-  debug('continuationToken', continuationToken)
+  debug('continuationToken:', continuationToken)
 
   /** @type {EntityCollection<Entity>} */
   let entities = yield loadAsync(entityType, query)
@@ -64,26 +65,43 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
   debug('New entities:', entities.map(ent =>
     getServerTimeMoment(ent.updated).format('HH:mm:ss SSS')))
 
-  if (!entities.length) { return continuationToken }
+  if (!entities.length) {
+    if (continuationToken.updatedTo || continuationToken.fromUuid) {
+      return Object.assign({}, continuationToken, {
+        updatedFrom: updatedTo.toISOString(),
+        updatedTo: null,
+        fromUuid: null,
+        remaining: 0
+      })
+    } else {
+      return continuationToken
+    }
+  }
 
   lastEntity = entities[entities.length - 1]
 
   // Сохраняем в БД полученные сущности
   yield syncToDB(entities)
 
+  newToken = Object.assign({}, continuationToken)
+
   // Получены все сущности для текущего интервала
   if (entities.total <= step) {
-    debug(entityType + ' entities synced all')
-    newToken = {
-      updatedFrom: updatedTo.toISOString()
-    }
+    log(`[${entityType}] synced ${entities.length} entities`)
+    Object.assign(newToken, {
+      updatedFrom: updatedTo.toISOString(),
+      updatedTo: null,
+      fromUuid: null,
+      remaining: 0
+    })
   } else { // Получена только часть сущностей
-    debug(entityType + ' entities to sync:', entities.total)
-    newToken = {
+    log(`[${entityType}] synced ${entities.length} of ${entities.total} entities`)
+    Object.assign(newToken, {
       updatedFrom: continuationToken.updatedFrom,
       updatedTo: updatedTo.toISOString(),
-      fromUuid: lastEntity.uuid
-    }
+      fromUuid: lastEntity.uuid,
+      remaining: entities.total - entities.length
+    })
   }
 
   return newToken
