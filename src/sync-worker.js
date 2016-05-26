@@ -88,6 +88,7 @@ module.exports = function getSyncWorker (client) {
         errors.push(err)
         continue
       }
+      errors = []
 
       if (nextToken !== currentToken) {
         nextToken._rev = (yield db.insert(nextToken)).rev
