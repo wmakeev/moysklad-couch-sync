@@ -82,7 +82,7 @@ module.exports = function getSyncWorker (client) {
         } else if (err.message && err.message.indexOf('Server response error 502') !== -1) {
           yield wait(ERROR_502_TIMEOUT)
         } else {
-          log(err.message)
+          log(`[${type}] ${err.message}`)
           yield wait(ERROR_TIMEOUT)
         }
         errors.push(err)

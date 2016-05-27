@@ -27,8 +27,8 @@ co(function * () {
     co(function * () {
       yield syncWorker(type, token, SYNC_STEP)
     }).catch(err => {
-      log(`[${type}] worker stoped with error:`, err.stack)
+      log(`[${type}] worker stoped with error: ${err.message}`, err.stack)
     })
   })
 }).then(res => console.log('Watching for changes ..'))
-  .catch(err => console.log(err.stack))
+  .catch(err => console.log('Sync failed with error: ' + err.message, err.stack))
