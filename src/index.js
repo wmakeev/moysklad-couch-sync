@@ -5,7 +5,11 @@ const co = require('co')
 const log = require('debug')('moysklad-couch-sync')
 const moysklad = require('moysklad-client')
 
-const db = require('_project/nano-promise')
+const nano = require('_project/nano-promise')
+
+const couch = nano(process.env.COUCHDB_HOST)
+const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_DB)
+
 const getSyncWorker = require('./sync-worker')
 
 const SYNC_STEP = 100
@@ -14,7 +18,7 @@ let client = moysklad.createClient()
 let syncWorker = getSyncWorker(client)
 
 co(function * () {
-  /** @type {CouchDBList<ContinuationToken>} */
+  /** @type {CouchDBViewList<ContinuationToken>} */
   let continuationTokens = (yield db.view('views', 'sync-token'))
 
   /** @type {Map<string, ContinuationToken>} */
