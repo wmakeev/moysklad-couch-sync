@@ -1,11 +1,16 @@
-const syncPart = require('./sync-part')
 const debug = require('debug')('sync-worker')
 const log = require('debug')('moysklad-couch-sync')
 const moment = require('moment')
 
+const nano = require('_project/nano-promise')
 const wait = require('_project/wait')
-const db = require('_project/nano-promise')
+const syncPart = require('./sync-part')
+
+const couch = nano(process.env.COUCHDB_HOST)
+const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_DB)
 const couchSync = require('./couch-sync')
+
+// TODO Корретно обработать ошибки, когда сервис не доступен - https://yadi.sk/i/RPtMrai_sVuoc https://yadi.sk/i/vevUc-YysVwCg
 
 /** @type {number} Таймаут по умолчанию между проверками обновлений */
 const DEFAULT_TIMEOUT = process.env.DEFAULT_TIMEOUT || 60000
