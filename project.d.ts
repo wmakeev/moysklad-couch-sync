@@ -1,15 +1,30 @@
-interface CouchDBView<T> {
+interface CouchDBErrorRow {
     key: string
-    id?: string
-    value?: T
-    error?: string
+    error: string
+}
+
+interface CouchDBRow {
+    key: string
+    id: string
+}
+
+interface CouchDBValueRow<T> extends CouchDBRow {
+    value: T
+}
+
+interface CouchDBDocRow<T> extends CouchDBValueRow<{ rev: string }> {
+    doc: T
 }
 
 interface CouchDBList<T> {
     offset: number
-    rows: Array<CouchDBView<T>>
-    total_rows: number;
+    rows: Array<T|CouchDBErrorRow>
+    total_rows: number
 }
+
+interface CouchDBViewList<T> extends CouchDBList<CouchDBValueRow<T>> {}
+
+interface CouchDBDocsList<T> extends CouchDBList<CouchDBDocRow<T>> {}
 
 /**
  * Запись в базе данных CouchDB
@@ -61,7 +76,18 @@ interface CouchEntity extends Entity, CouchDBDoc {}
 
 declare module "_project/nano-promise" {
 
-    /** Возвращает список ревизий для объектов с указанными ключами */
-    export function fetchRevs(query: { keys: Array<string> }): Promise<CouchDBList<{ rev: string }>>
+    function nanoPromise (host: string): {
+        db: {
+            use (name: string): {
 
+                /** Возвращает список документов для запроса `query` */
+                fetch(query: { keys: Array<string> }): Promise<CouchDBDocsList<CouchEntity>>,
+
+                /** Возвращает список ревизий для объектов с указанными ключами */
+                fetchRevs(query: { keys: Array<string> }): Promise<CouchDBViewList<{ rev: string }>>
+            }
+        }
+    }
+
+    export = nanoPromise
 }
