@@ -61,9 +61,10 @@ module.exports = function getSyncWorker (client) {
    * @param {string} type Тип сущности
    * @param {ContinuationToken} continuationToken Тип сущности
    * @param {number} step Кол-во синхронизируемых сущностей для текущей итерации
+   * @param {Object} config Настройки синхронизации для данного типа
    * @returns {IterableIterator} some
    */
-  function * syncWorker (type, continuationToken, step) {
+  function * syncWorker (type, continuationToken, step, config) {
     /** @type {ContinuationToken} */
     let currentToken = continuationToken
     /** @type {ContinuationToken} */
@@ -80,7 +81,7 @@ module.exports = function getSyncWorker (client) {
         .format('HH:mm:ss SSS')}`)
 
       try {
-        nextToken = yield syncPart(syncToDB, loadAsync, type, step, currentToken)
+        nextToken = yield syncPart(syncToDB, loadAsync, type, step, currentToken, config)
       } catch (err) {
         if (errors.length >= ERRORS_LIMIT) {
           throw err

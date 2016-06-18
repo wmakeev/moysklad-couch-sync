@@ -6,6 +6,8 @@ const moment = require('moment')
 const moysklad = require('moysklad-client')
 const have = require('_project/have')
 
+const entityConverter = require('./entity-converter')
+
 const SERVER_TIMEZONE = 180 // +3
 const LOCAL_TIMEZONE = 300 // +5
 
@@ -22,14 +24,18 @@ function getServerTimeMoment (time) {
  * @param {String} entityType Тип сущности МойСклад
  * @param {number} step Шаг синхронизации
  * @param {ContinuationToken} continuationToken Состояние синхронизации
+ * @param {Object} config Настройки синхронизации
  * @returns {IterableIterator<ContinuationToken>} Обновленное состояние синхронизации
  */
-module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, continuationToken) {
+module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
+                                      continuationToken, config) {
   // Проверяем аргументы в runtime
   have(arguments, {
     syncToDB: 'function', loadAsync: 'function', type: 'string', step: 'number',
-    continuationToken: 'continuationToken'
+    continuationToken: 'continuationToken', config: 'opt obj'
   })
+
+  let convertEntity = entityConverter(config)
 
   /** @type {Date} */
   let updatedTo
@@ -41,6 +47,10 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
   let query = moysklad.createQuery()
     .filter('updated', { $gte: moment(continuationToken.updatedFrom).toDate() })
     .count(step)
+
+  if (config && config.fileContent) {
+    query = query.fileContent(true)
+  }
 
   if (continuationToken.updatedTo) {
     if (moment(continuationToken.updatedTo).isAfter(getServerTimeMoment())) {
@@ -61,6 +71,8 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
 
   /** @type {EntityCollection<Entity>} */
   let entities = yield loadAsync(entityType, query)
+
+  entities = entities.map(convertEntity)
 
   debug('New entities:', entities.map(ent =>
     getServerTimeMoment(ent.updated).format('HH:mm:ss SSS')))

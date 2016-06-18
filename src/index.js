@@ -18,8 +18,14 @@ let client = moysklad.createClient()
 let syncWorker = getSyncWorker(client)
 
 co(function * () {
+  /** @type {CouchDBDoc} */
+  let syncConfig
   /** @type {CouchDBViewList<ContinuationToken>} */
-  let continuationTokens = (yield db.view('views', 'sync-token'))
+  let continuationTokens
+
+  [syncConfig, continuationTokens] = yield Promise.all([
+    db.get('sync-config'), db.view('views', 'sync-token')
+  ])
 
   /** @type {Map<string, ContinuationToken>} */
   let continuationTokensMap = continuationTokens.rows.reduce((res, row) => {
@@ -29,7 +35,7 @@ co(function * () {
 
   continuationTokensMap.forEach((token, type) => {
     co(function * () {
-      yield syncWorker(type, token, SYNC_STEP)
+      yield syncWorker(type, token, SYNC_STEP, syncConfig[type])
     }).catch(err => {
       log(`[${type}] worker stoped with error: ${err.message}`, err.stack)
     })
