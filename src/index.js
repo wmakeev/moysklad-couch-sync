@@ -8,7 +8,7 @@ const moysklad = require('moysklad-client')
 const nano = require('_project/nano-promise')
 
 const couch = nano(process.env.COUCHDB_HOST)
-const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_DB)
+const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_ENTITIES_DB)
 
 const getSyncWorker = require('./sync-worker')
 
@@ -23,8 +23,8 @@ co(function * () {
   /** @type {CouchDBViewList<ContinuationToken>} */
   let continuationTokens
 
-  [syncConfig, continuationTokens] = yield Promise.all([
-    db.get('sync-config'), db.view('views', 'sync-token')
+  ;[syncConfig, continuationTokens] = yield Promise.all([
+    db.get('sync-config'), db.view('utils', 'sync-token')
   ])
 
   /** @type {Map<string, ContinuationToken>} */
@@ -35,7 +35,7 @@ co(function * () {
 
   continuationTokensMap.forEach((token, type) => {
     co(function * () {
-      yield syncWorker(type, token, SYNC_STEP, syncConfig[type])
+      yield syncWorker(type, token, SYNC_STEP, syncConfig[type] || {})
     }).catch(err => {
       log(`[${type}] worker stoped with error: ${err.message}`, err.stack)
     })

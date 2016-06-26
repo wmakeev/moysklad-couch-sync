@@ -1,31 +1,29 @@
+'use strict'
+
+const reduce = require('lodash.reduce')
+
 /**
  * Возвращает конвертер для сущностей МойСклад
- * @param {Object} options Опции
+ * @param {Function} reducer Преобразователь объекта
  * @returns {convertEntity} Конвертер
  */
-module.exports = function getEntityConverter (options) {
+module.exports = function getEntityConverter (reducer) {
+  let reduceEntity = value => new Promise(resolve => reducer(resolve)(value))
   /**
    * Преобразует сущность МойСклад к формату удобному для хранения в CouchDB
    * @param {Entity} entity Сущность МойСклад
-   * @returns {Entity} Преобразованная сущность МойСклад
+   * @returns {PromiseLike<TransformedEntity>} Преобразованная сущность МойСклад
    */
   function convertEntity (entity) {
-    return Object.keys(entity).reduce((res1, key) => {
-      let curProp = entity[key]
-      let keyProp = 'uuid'
-      if (curProp instanceof Array && curProp[0] && curProp[0][keyProp]) {
-        keyProp = ['metadataUuid', 'priceTypeUuid'].find(p => !!curProp[0][p]) || keyProp
-        res1[key] = curProp.reduce((res2, item, index) => {
-          item._index = index
-          res2[item[keyProp]] = item instanceof Object ? convertEntity(item) : item
-          return res2
-        }, {_array: true})
-      } else {
-        res1[key] = entity[key]
-      }
-      return res1
-    }, {})
+    return reduce(entity, (result, value, key) => result.then(res =>
+      (value instanceof Object
+        ? convertEntity(value).then(reduceEntity)
+        : reduceEntity(value)).then(reducedValue => {
+          res[key] = reducedValue
+          return res
+        })),
+      Promise.resolve(entity instanceof Array ? [] : {})).then(reduceEntity)
   }
 
-  return convertEntity
+  return entity => convertEntity(JSON.parse(JSON.stringify(entity)))
 }

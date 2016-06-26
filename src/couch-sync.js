@@ -8,7 +8,7 @@ const nano = require('_project/nano-promise')
 const entityDiff = require('_project/entity-diff')
 
 const couch = nano(process.env.COUCHDB_HOST)
-const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_DB)
+const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_ENTITIES_DB)
 const changesDb = couch.db.use(process.env.COUCHDB_MOYSKLAD_CHANGES_DB)
 
 /* Возвращает объект с измененимями для фиксации в БД */
@@ -21,7 +21,7 @@ let getDiffObject = (entity, delta) => ({
 
 /**
  * Синхронизирует сущности МойСклад с БД CouchDB
- * @param {Array<Entity>} entities Список сущностей
+ * @param {Array<TransformedEntity>} entities Список сущностей
  * @returns {Promise} db.bulk
  */
 module.exports = function couchSync (entities) {
@@ -31,26 +31,28 @@ module.exports = function couchSync (entities) {
   return db.fetch({ keys }).then(res => {
     let rows = res.rows
     let diffs = []
+
     /** @type Array<CouchEntity> */
     let docs = entities.map((entity, index) => {
       let diff
       let row = rows[index]
       let _ent = { _id: entity.uuid }
       if (row && row.value && !row.error) {
-        // assert(entity.uuid === row.doc.uuid, 'Uuids mismatch!') // TODO Временно для отладки
-        diff = getDiffObject(entity, entityDiff.diff(cloneToDiff(row.doc), cloneToDiff(entity)))
+        diff = getDiffObject(entity, entityDiff.diff(row.doc, entity))
         log(`[${diff.TYPE_NAME}] ${diff.name} changed by ${diff.updatedBy}:\n`,
           jsonDiffFormat(diff.delta))
         _ent._rev = row.value.rev
       } else {
-        diff = getDiffObject(entity, entityDiff.diff(null, cloneToDiff(entity)))
+        diff = getDiffObject(entity, entityDiff.diff(null, entity))
       }
       diffs.push(diff)
       return Object.assign(_ent, entity)
     })
+
     if (diffs.length) {
       changesDb.bulk({ docs: diffs })
     }
+
     return db.bulk({ docs })
   })
 }

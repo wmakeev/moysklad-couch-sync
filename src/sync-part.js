@@ -3,19 +3,17 @@
 const debug = require('debug')('sync-part')
 const log = require('debug')('moysklad-couch-sync')
 const moment = require('moment')
+const flow = require('lodash.flow')
 const moysklad = require('moysklad-client')
 const have = require('_project/have')
 
+// reducers
+const entitiesArrayToObject = require('_project/reducers/entities-array-to-object')
+const jsonAttachmentExpand = require('_project/reducers/json-attachment-expand')
+const reducer = flow(entitiesArrayToObject, jsonAttachmentExpand)
+
 const entityConverter = require('./entity-converter')
-
-const SERVER_TIMEZONE = 180 // +3
-const LOCAL_TIMEZONE = 300 // +5
-
-function getServerTimeMoment (time) {
-  time = time || new Date()
-  let serverTimezone = time.originalTimezone || SERVER_TIMEZONE
-  return moment(time).add(serverTimezone - LOCAL_TIMEZONE, 'm')
-}
+const getServerTimeMoment = require('./get-server-time-moment')
 
 /**
  * Синхронизирует часть сущностей с БД
@@ -35,8 +33,7 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
     continuationToken: 'continuationToken', config: 'opt obj'
   })
 
-  let convertEntity = entityConverter(config)
-
+  let convertEntity = entityConverter(reducer)
   /** @type {Date} */
   let updatedTo
   /** @type {Entity} Последняя из полученных сущностей */
@@ -48,8 +45,9 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
     .filter('updated', { $gte: moment(continuationToken.updatedFrom).toDate() })
     .count(step)
 
-  if (config && config.fileContent) {
-    query = query.fileContent(true)
+  if (config) {
+    if (config.fileContent) { query = query.fileContent(true) }
+    if (config.archived) { query = query.showArchived(true) }
   }
 
   if (continuationToken.updatedTo) {
@@ -72,8 +70,6 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
   /** @type {EntityCollection<Entity>} */
   let entities = yield loadAsync(entityType, query)
 
-  entities = entities.map(convertEntity)
-
   debug('New entities:', entities.map(ent =>
     getServerTimeMoment(ent.updated).format('HH:mm:ss SSS')))
 
@@ -93,7 +89,7 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
   lastEntity = entities[entities.length - 1]
 
   // Сохраняем в БД полученные сущности
-  yield syncToDB(entities)
+  yield syncToDB(yield Promise.all(entities.map(ent => convertEntity(ent))))
 
   newToken = Object.assign({}, continuationToken)
 
