@@ -64,6 +64,8 @@ interface Entity {
     updated: Date
 }
 
+interface TransformedEntity extends Entity {}
+
 interface EntityCollection<T> extends ArrayLike<T> {
     total: number
     start: number
