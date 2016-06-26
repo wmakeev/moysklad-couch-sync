@@ -8,7 +8,7 @@
     "valid-jsdoc": ["warn"],
     "max-len": ["error", 100],
     "arrow-parens": 0,
-    "indent": ["error", 2],
+    "indent": ["error", 2, { "SwitchCase": 1 }],
     "no-shadow": ["error", {
       "builtinGlobals": true, "hoist": "all", "allow": [
         "cb", "done", "resolve", "reject", "name"
