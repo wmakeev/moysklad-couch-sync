@@ -1,17 +1,20 @@
 'use strict'
 
-// const assert = require('assert')
-const log = require('debug')('diff')
+const log = require('debug')('moysklad-couch-sync-diff')
 const jsonDiffFormat = require('jsondiffpatch').formatters.console.format
 
 const nano = require('_project/nano-promise')
 const entityDiff = require('_project/entity-diff')
 
 const couch = nano(process.env.COUCHDB_HOST)
-const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_ENTITIES_DB)
+const entitiesDb = couch.db.use(process.env.COUCHDB_MOYSKLAD_ENTITIES_DB)
 const changesDb = couch.db.use(process.env.COUCHDB_MOYSKLAD_CHANGES_DB)
 
-/* Возвращает объект с измененимями для фиксации в БД */
+/**
+ * @param {Entity} entity Сущность
+ * @param {any} delta Diff delta
+ * @returns {EntityDiff} EntityDiff
+ */
 let getDiffObject = (entity, delta) => ({
   TYPE_NAME: entity.TYPE_NAME,
   uuid: entity.uuid,
@@ -24,35 +27,49 @@ let getDiffObject = (entity, delta) => ({
  * @param {Array<TransformedEntity>} entities Список сущностей
  * @returns {Promise} db.bulk
  */
-module.exports = function couchSync (entities) {
-  let keys = entities.map(ent => ent.uuid)
+module.exports = function * couchSync (entities) {
+  /** @type {CouchDBDocsList<CouchEntity>} */
+  let dbFetchResult = yield entitiesDb.fetch({ keys: entities.map(ent => ent.uuid) })
+  /** @type {Array<CouchEntity>} */
+  let rows = dbFetchResult.rows
+  /** @type {Array<CouchEntity>} */
+  let couchEntities = []
+  /** @type {Array<EntityDiff>} */
+  let diffs = []
 
-  // Устанавливаю существующие ревизии объектов
-  return db.fetch({ keys }).then(res => {
-    let rows = res.rows
-    let diffs = []
-
-    /** @type Array<CouchEntity> */
-    let docs = entities.map((entity, index) => {
-      let diff
-      let row = rows[index]
-      let _ent = { _id: entity.uuid }
-      if (row && row.value && !row.error) {
-        diff = getDiffObject(entity, entityDiff.diff(row.doc, entity))
-        log(`[${diff.TYPE_NAME}] ${diff.name} changed by ${diff.updatedBy}:\n`,
-          jsonDiffFormat(diff.delta))
-        _ent._rev = row.value.rev
-      } else {
-        diff = getDiffObject(entity, entityDiff.diff(null, entity))
-      }
-      diffs.push(diff)
-      return Object.assign(_ent, entity)
-    })
-
-    if (diffs.length) {
-      changesDb.bulk({ docs: diffs })
+  let messages = entities.map((entity, index) => {
+    let diff
+    let row = rows[index]
+    let ent = { _id: entity.uuid }
+    let msg
+    if (row && row.value && row.doc && !row.error) {
+      diff = getDiffObject(entity, entityDiff.diff(row.doc, entity))
+      ent._rev = row.value.rev
+      msg = `[${diff.TYPE_NAME}] ${entity.name} changed by ${diff.updatedBy}:\n` +
+        jsonDiffFormat(diff.delta)
+    } else {
+      diff = getDiffObject(entity, entityDiff.diff(null, entity))
+      msg = `[${diff.TYPE_NAME}] ${entity.name} created by ${diff.updatedBy}`
     }
 
-    return db.bulk({ docs })
+    if (diff.delta) {
+      couchEntities.push(Object.assign(ent, entity))
+      diffs.push(diff)
+      return msg
+    } else {
+      return `[${diff.TYPE_NAME}] ${entity.name} already synced`
+    }
   })
+
+  // TODO Важно убедится в том что данные сохранились в changesDb и entitiesDb одновременно ..
+  // .. иначе отменить, если возможно
+
+  if (diffs.length) {
+    entitiesDb.bulk({ docs: couchEntities })
+    changesDb.bulk({ docs: diffs })
+  }
+
+  log(['CHANGES:'].concat(messages).join('\n'))
+
+  return void 0
 }
