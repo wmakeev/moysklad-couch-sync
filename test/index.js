@@ -1,5 +1,8 @@
 'use strict'
 
+require('dotenv').config()
+process.env.DEBUG = '*'
+
 let tap = require('tap')
 let reporter = require('tap-mocha-reporter')
 let walk = require('walkdir')
