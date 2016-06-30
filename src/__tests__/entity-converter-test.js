@@ -1,13 +1,13 @@
 /* eslint no-shadow: 0 */
 'use strict'
 
-const flow = require('lodash.flow')
+const compose = require('lodash.compose')
 
 // reducers
 const entitiesArrayToObject = require('_project/reducers/entities-array-to-object')
 const jsonAttachmentExpand = require('_project/reducers/json-attachment-expand')
 const nonJsonContentsRemove = require('_project/reducers/non-json-contents-remove')
-const reducer = flow(
+const reducer = compose(
   entitiesArrayToObject,
   jsonAttachmentExpand,
   nonJsonContentsRemove)
@@ -96,16 +96,14 @@ exports['Entity converter'] = t => {
         uuid: 'attr-1-uuid', metadataUuid: 'attr-1-meta-uuid',
         file: {
           filename: 'some-1.jpg'
-        },
-        _index: 0
+        }
       },
       'attr-2-meta-uuid': {
         uuid: 'attr-2-uuid', metadataUuid: 'attr-2-meta-uuid',
         file: {
           TYPE_NAME: 'moysklad.attachmentDocument',
           filename: 'some-2.jpg'
-        },
-        _index: 1
+        }
       },
       'attr-3-meta-uuid': {
         uuid: 'attr-3-uuid', metadataUuid: 'attr-3-meta-uuid',
@@ -113,8 +111,7 @@ exports['Entity converter'] = t => {
           TYPE_NAME: 'moysklad.attachmentDocument',
           filename: 'some-3.json',
           contents: ['front', 'man1']
-        },
-        _index: 2
+        }
       },
       _array: true
     },
