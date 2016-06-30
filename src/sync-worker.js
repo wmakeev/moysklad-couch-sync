@@ -4,13 +4,16 @@ const moment = require('moment')
 
 const nano = require('_project/nano-promise')
 const wait = require('_project/wait')
+const getAsyncClient = require('_project/moysklad-client-async')
 const syncPart = require('./sync-part')
 
 const couch = nano(process.env.COUCHDB_HOST)
-const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_DB)
+const db = couch.db.use(process.env.COUCHDB_MOYSKLAD_ENTITIES_DB)
 const couchSync = require('./couch-sync')
 
-// TODO Корретно обработать ошибки, когда сервис не доступен - https://yadi.sk/i/RPtMrai_sVuoc https://yadi.sk/i/vevUc-YysVwCg
+// TODO Корректно обработать ошибки, когда сервис не доступен
+// https://yadi.sk/i/RPtMrai_sVuoc
+// https://yadi.sk/i/vevUc-YysVwCg
 
 /** @type {number} Таймаут по умолчанию между проверками обновлений */
 const DEFAULT_TIMEOUT = process.env.DEFAULT_TIMEOUT || 60000
@@ -27,8 +30,6 @@ const ERROR_502_TIMEOUT = 1000 * 60 * 10
  * @returns {Iterable} db.bulk
  */
 function * syncToDB (entities) {
-  /* console.log('syncToDB', entities.map(ent =>
-    ent.name.substring(0, 50) + ' ' + moment(ent.updated).format('HH:mm:ss.SSS'))) */
   yield couchSync(entities)
 }
 
@@ -38,38 +39,23 @@ function * syncToDB (entities) {
  * @returns {function(string, ContinuationToken, number):IterableIterator} syncWorker
  */
 module.exports = function getSyncWorker (client) {
-  /**
-   * Асинхронная обертка для client.load
-   * @param {string} type Тип сущности
-   * @param {Query} query Запрос
-   * @returns {PromiseLike} Promise
-   */
-  function loadAsync (type, query) {
-    return new Promise((resolve, reject) => {
-      client.load(type, query, function (err, data) {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(data)
-        }
-      })
-    })
-  }
+  let asyncClient = getAsyncClient(client)
 
   /**
    * Синхронизирует часть сущностей
    * @param {string} type Тип сущности
    * @param {ContinuationToken} continuationToken Тип сущности
    * @param {number} step Кол-во синхронизируемых сущностей для текущей итерации
+   * @param {Object} config Настройки синхронизации для данного типа
    * @returns {IterableIterator} some
    */
-  function * syncWorker (type, continuationToken, step) {
+  function * syncWorker (type, continuationToken, step, config) {
     /** @type {ContinuationToken} */
     let currentToken = continuationToken
     /** @type {ContinuationToken} */
     let nextToken = currentToken
     /** @type {number} */
-    let timeout = continuationToken.timeout || DEFAULT_TIMEOUT
+    let timeout = config.timeout || DEFAULT_TIMEOUT
     /** @type {Array<Error>} */
     let errors = []
 
@@ -80,7 +66,7 @@ module.exports = function getSyncWorker (client) {
         .format('HH:mm:ss SSS')}`)
 
       try {
-        nextToken = yield syncPart(syncToDB, loadAsync, type, step, currentToken)
+        nextToken = yield syncPart(syncToDB, asyncClient.load, type, step, currentToken, config)
       } catch (err) {
         if (errors.length >= ERRORS_LIMIT) {
           throw err

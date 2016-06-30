@@ -1,3 +1,5 @@
+// TODO Мешанина с моделью CouchDB!!!
+
 interface CouchDBErrorRow {
     key: string
     error: string
@@ -64,6 +66,8 @@ interface Entity {
     updated: Date
 }
 
+interface TransformedEntity extends Entity {}
+
 interface EntityCollection<T> extends ArrayLike<T> {
     total: number
     start: number
@@ -90,4 +94,11 @@ declare module "_project/nano-promise" {
     }
 
     export = nanoPromise
+}
+
+interface EntityDiff {
+    TYPE_NAME: string
+    uuid: string
+    updatedBy: string
+    delta: any
 }

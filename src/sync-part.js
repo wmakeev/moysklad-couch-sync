@@ -3,17 +3,21 @@
 const debug = require('debug')('sync-part')
 const log = require('debug')('moysklad-couch-sync')
 const moment = require('moment')
+const compose = require('lodash.compose')
 const moysklad = require('moysklad-client')
 const have = require('_project/have')
 
-const SERVER_TIMEZONE = 180 // +3
-const LOCAL_TIMEZONE = 300 // +5
+// reducers
+const entitiesArrayToObject = require('_project/reducers/entities-array-to-object')
+const jsonAttachmentExpand = require('_project/reducers/json-attachment-expand')
+const nonJsonContentsRemove = require('_project/reducers/non-json-contents-remove')
+const reducer = compose(
+  entitiesArrayToObject,
+  jsonAttachmentExpand,
+  nonJsonContentsRemove)
 
-function getServerTimeMoment (time) {
-  time = time || new Date()
-  let serverTimezone = time.originalTimezone || SERVER_TIMEZONE
-  return moment(time).add(serverTimezone - LOCAL_TIMEZONE, 'm')
-}
+const entityConverter = require('./entity-converter')
+const getServerTimeMoment = require('./get-server-time-moment')
 
 /**
  * Синхронизирует часть сущностей с БД
@@ -22,15 +26,18 @@ function getServerTimeMoment (time) {
  * @param {String} entityType Тип сущности МойСклад
  * @param {number} step Шаг синхронизации
  * @param {ContinuationToken} continuationToken Состояние синхронизации
+ * @param {Object} config Настройки синхронизации
  * @returns {IterableIterator<ContinuationToken>} Обновленное состояние синхронизации
  */
-module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, continuationToken) {
+module.exports = function * syncPart (syncToDB, loadAsync, entityType, step,
+                                      continuationToken, config) {
   // Проверяем аргументы в runtime
   have(arguments, {
     syncToDB: 'function', loadAsync: 'function', type: 'string', step: 'number',
-    continuationToken: 'continuationToken'
+    continuationToken: 'continuationToken', config: 'opt obj'
   })
 
+  let convertEntity = entityConverter(reducer)
   /** @type {Date} */
   let updatedTo
   /** @type {Entity} Последняя из полученных сущностей */
@@ -41,6 +48,11 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
   let query = moysklad.createQuery()
     .filter('updated', { $gte: moment(continuationToken.updatedFrom).toDate() })
     .count(step)
+
+  if (config) {
+    if (config.fileContent) { query = query.fileContent(true) }
+    if (config.archived) { query = query.showArchived(true) }
+  }
 
   if (continuationToken.updatedTo) {
     if (moment(continuationToken.updatedTo).isAfter(getServerTimeMoment())) {
@@ -81,7 +93,7 @@ module.exports = function * syncPart (syncToDB, loadAsync, entityType, step, con
   lastEntity = entities[entities.length - 1]
 
   // Сохраняем в БД полученные сущности
-  yield syncToDB(entities)
+  yield syncToDB(yield Promise.all(entities.map(ent => convertEntity(ent))))
 
   newToken = Object.assign({}, continuationToken)
 
