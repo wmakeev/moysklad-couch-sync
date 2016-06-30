@@ -38,6 +38,7 @@ typings
 .vscode/launch.json
 
 # Temp
+temp
 temp.js
 _temp*.js
 _temp*.ts
