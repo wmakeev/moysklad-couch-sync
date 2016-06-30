@@ -22,8 +22,8 @@ module.exports = function getEntityConverter (reducer) {
           res[key] = reducedValue
           return res
         })),
-      Promise.resolve(entity instanceof Array ? [] : {})).then(reduceEntity)
+      Promise.resolve(entity instanceof Array ? [] : {}))
   }
 
-  return entity => convertEntity(JSON.parse(JSON.stringify(entity)))
+  return entity => convertEntity(JSON.parse(JSON.stringify(entity))).then(reduceEntity)
 }
