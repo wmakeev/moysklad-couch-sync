@@ -3,14 +3,18 @@
 const debug = require('debug')('sync-part')
 const log = require('debug')('moysklad-couch-sync')
 const moment = require('moment')
-const flow = require('lodash.flow')
+const compose = require('lodash.compose')
 const moysklad = require('moysklad-client')
 const have = require('_project/have')
 
 // reducers
 const entitiesArrayToObject = require('_project/reducers/entities-array-to-object')
 const jsonAttachmentExpand = require('_project/reducers/json-attachment-expand')
-const reducer = flow(entitiesArrayToObject, jsonAttachmentExpand)
+const nonJsonContentsRemove = require('_project/reducers/non-json-contents-remove')
+const reducer = compose(
+  entitiesArrayToObject,
+  jsonAttachmentExpand,
+  nonJsonContentsRemove)
 
 const entityConverter = require('./entity-converter')
 const getServerTimeMoment = require('./get-server-time-moment')
